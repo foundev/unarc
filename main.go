@@ -199,7 +199,9 @@ func Unzip(path string) error {
 	if err != nil {
 		return fmt.Errorf("unable to create directory %v with error %v", dir, err)
 	}
-
+	if verbose {
+		log.Printf("making dir '%v'", dir)
+	}
 	// Iterate through the files in the archive
 	// each file found is written out withthe full path
 	for _, f := range zipReader.File {
@@ -207,13 +209,22 @@ func Unzip(path string) error {
 		if err != nil {
 			return fmt.Errorf("unable to open file %v in zip with error %v", f.Name, err)
 		}
+
 		newFilePath := filepath.Join(dir, f.Name)
-		err = writeFile(newFilePath, fileInZip)
-		if err != nil {
-			fileInZip.Close()
-			return fmt.Errorf("unable to write file %v with error %v", newFilePath, err)
+
+		if f.FileInfo().IsDir() {
+			err = os.MkdirAll(newFilePath, 0755)
+			if err != nil {
+				return fmt.Errorf("unable to create directory %v with error %v", newFilePath, err)
+			}
 		} else {
-			fileInZip.Close()
+			err = writeFile(newFilePath, fileInZip)
+			if err != nil {
+				fileInZip.Close()
+				return fmt.Errorf("unable to write file %v with error %v", newFilePath, err)
+			} else {
+				fileInZip.Close()
+			}
 		}
 	}
 	return nil
