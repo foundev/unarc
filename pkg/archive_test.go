@@ -21,7 +21,7 @@
    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
    SOFTWARE.
 */
-package main
+package pkg
 
 import (
 	"bytes"
@@ -30,7 +30,7 @@ import (
 )
 
 func TestUnzip(t *testing.T) {
-	err := Unzip("testdata/withdir.zip")
+	err := Unzip("testdata/withdir.zip", true)
 	if err != nil {
 		t.Errorf("unable to unzip with error %v", err)
 	}
@@ -39,7 +39,7 @@ func TestUnzip(t *testing.T) {
 }
 
 func TestUnTar(t *testing.T) {
-	err := UnTar("testdata/withdir-onlytar.tar")
+	err := UnTar("testdata/withdir-onlytar.tar", true)
 	if err != nil {
 		t.Errorf("unable to untar with error %v", err)
 	}
@@ -48,7 +48,7 @@ func TestUnTar(t *testing.T) {
 }
 
 func TestGunzip(t *testing.T) {
-	newFile, err := UnGzip("testdata/withdir.tar.gz")
+	newFile, err := UnGzip("testdata/withdir.tar.gz", true)
 	if err != nil {
 		t.Errorf("unable to ungzip with error %v", err)
 	}

@@ -4,8 +4,8 @@ Find everything under a given directory and unarchive it.
 
 # why?
 
-I got really tired of having to hack together commands for mac and linux that would handle all the corners I needed
-for my work or random archived data
+I got really tired of having to hack together commands for Mac and Linux that would handle all the corners I needed
+for my work or random archived data buried in tons of nested folders
 
 # how to use
 
@@ -17,11 +17,11 @@ for my work or random archived data
 
 # how to build
 
-`go build -o ./bin/unarc ./cmd`
+`./scripts/build`
 
 # how to test
 
-`go test -v ./...`
+`./scripts/test`
 
 # license
 
