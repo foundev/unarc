@@ -37,13 +37,28 @@ import (
 	"strings"
 )
 
+var verbose bool
+
 func main() {
 	help := flag.Bool("help", false, "show command line help")
+	flag.BoolVar(&verbose, "v", false, "show verbose extraction")
+	delarc := flag.Bool("del", false, "delete the files that are successfully extracted")
 	flag.Parse()
 	if flag.NArg() == 0 || *help {
 		flag.Usage()
 		//I throw an error here because I do not like to have scripts silently fail if I pass the wrong args
 		os.Exit(1)
+	}
+	cleanup := func(s string) {}
+	if *delarc {
+		cleanup = func(path string) {
+			err := os.Remove(path)
+			if err != nil {
+				log.Printf("WARN unable to delete %v with error %v\n", path, err)
+			} else if verbose {
+				log.Printf("INFO file %v deleted\n", path)
+			}
+		}
 	}
 	dir := flag.Args()[0]
 	err := filepath.Walk(dir, func(path string, info fs.FileInfo, err error) error {
@@ -57,35 +72,49 @@ func main() {
 				err = Unzip(path)
 				if err != nil {
 					log.Printf("ERROR unable to execute unzip on file '%v' with error '%v'", path, err)
+				} else {
+					cleanup(path)
 				}
 			case ".tar":
 				err = UnTar(path)
 				if err != nil {
 					log.Printf("ERROR unable to execute untar on file '%v' with error '%v'", path, err)
+				} else {
+					cleanup(path)
 				}
 			case ".gz":
 				newFile, err := UnGzip(path)
 				if err != nil {
 					log.Printf("ERROR unable to execute ungzip on file '%v' with error '%v'", path, err)
+				} else {
+					cleanup(path)
 				}
 				newExt := filepath.Ext(newFile)
-				if newExt == "tar" {
-					err = UnTar(path)
+				if newExt == ".tar" {
+					err = UnTar(newFile)
 					if err != nil {
 						log.Printf("ERROR unable to execute untar on file '%v' with error '%v'", path, err)
+					} else {
+						cleanup(newFile)
 					}
 				}
 			case ".tgz":
 				newFile, err := UnGzip(path)
 				if err != nil {
 					log.Printf("ERROR unable to execute ungzip on file '%v' with error '%v'", path, err)
+				} else {
+					cleanup(path)
 				}
 				err = UnTar(newFile)
 				if err != nil {
 					log.Printf("ERROR unable to execute untar on file '%v' with error '%v'", path, err)
+				} else {
+					cleanup(newFile)
 				}
 			default:
-				log.Printf("skipping %v as exentions is %v", path, ext)
+				if verbose {
+					log.Printf("INFO skipping %v as exentions is %v", path, ext)
+				}
 			}
 		}
 		return nil
@@ -94,6 +123,22 @@ func main() {
 		fmt.Printf("error walking the path %q: %v\n", dir, err)
 		os.Exit(2)
 	}
+}
+
+func writeFile(path string, r io.Reader) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("unable to write file %v with error %v", path, err)
+	}
+	defer f.Close()
+	written, err := io.Copy(f, r)
+	if err != nil {
+		return err
+	}
+	if verbose {
+		log.Printf("INFO %v bytes written for file %v\n", written, path)
+	}
+	return nil
 }
 
 //UnTar a tarball and places all the files next to it
@@ -123,16 +168,10 @@ func UnTar(path string) error {
 		}
 		newPath := filepath.Join(dir, header.Name)
 		if header.Typeflag == tar.TypeReg {
-			newf, err := os.Create(newPath)
-			if err != nil {
-				return fmt.Errorf("unable to write file %v with error %v", newPath, err)
-			}
-			defer newf.Close()
-			written, err := io.Copy(newf, tarReader)
+			err = writeFile(newPath, tarReader)
 			if err != nil {
 				return fmt.Errorf("unable to write file %v in tar to %v with error %v", header.Name, newPath, err)
 			}
-			fmt.Printf("%v bytes written for file %v\n", written, newPath)
 			continue
 		}
 
@@ -168,18 +207,14 @@ func Unzip(path string) error {
 		if err != nil {
 			return fmt.Errorf("unable to open file %v in zip with error %v", f.Name, err)
 		}
-		defer fileInZip.Close()
 		newFilePath := filepath.Join(dir, f.Name)
-		newf, err := os.Create(newFilePath)
+		err = writeFile(newFilePath, fileInZip)
 		if err != nil {
+			fileInZip.Close()
 			return fmt.Errorf("unable to write file %v with error %v", newFilePath, err)
+		} else {
+			fileInZip.Close()
 		}
-		defer newf.Close()
-		written, err := io.Copy(newf, fileInZip)
-		if err != nil {
-			return fmt.Errorf("unable to write file %v in zip to %v with error %v", f.Name, newFilePath, err)
-		}
-		fmt.Printf("%v bytes written for file %v\n", written, newFilePath)
 	}
 	return nil
 }
@@ -197,19 +232,12 @@ func UnGzip(path string) (string, error) {
 		return "", fmt.Errorf("unable to open %v with error %v", path, err)
 	}
 
-	fmt.Printf("Name: %s\nComment: %s\nModTime: %s\n\n", zr.Name, zr.Comment, zr.ModTime.UTC())
 	newFilePath := strings.TrimSuffix(path, filepath.Ext(path))
-	newf, err := os.Create(newFilePath)
-	if err != nil {
-		return "", fmt.Errorf("unable to write file %v with error %v", newFilePath, err)
-	}
-	defer newf.Close()
-	written, err := io.Copy(newf, zr)
-	if err != nil {
-		return "", fmt.Errorf("unable to write %v with error %v", newFilePath, err)
-	}
-	log.Printf("%v bytes written for file %v\n", written, newFilePath)
+	err = writeFile(newFilePath, zr)
 
+	if err != nil {
+		return "", fmt.Errorf("unable to write file %v in gzip to %v with error %v", path, newFilePath, err)
+	}
 	defer func() {
 		if err := zr.Close(); err != nil {
 			log.Println(err)
