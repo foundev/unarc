@@ -35,6 +35,7 @@ func TestWalkDir(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to walk %v with error %v", dir, err)
 	}
+
 	fileName := filepath.Join(dir, "f.txt")
 	defer os.Remove(fileName)
 	b, err := os.ReadFile(fileName)
@@ -59,16 +60,19 @@ func TestWalkDir(t *testing.T) {
 		t.Errorf("expected '%q' but was '%q' for file %v", expected, content, fileName)
 	}
 
-	fileName = filepath.Join(dir, "ftar")
+	fileName = filepath.Join(dir, "ftar.txt")
 	defer os.Remove(fileName)
 	b, err = os.ReadFile(fileName)
 	if err != nil {
 		t.Errorf("did not extract file %v with error %v", fileName, err)
 	}
 	content = string(b)
-	expected = "this is a file for tar"
+	expected = "this is a file for tar\n"
 	if expected != content {
 		t.Errorf("expected '%q' but was '%q' for file %v", expected, content, fileName)
 	}
 
+    //final cleanup of tar file from tgz
+	fileName = filepath.Join(dir, "ftar")
+	defer os.Remove(fileName)
 }
