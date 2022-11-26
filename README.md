@@ -1,5 +1,7 @@
 # unarc
 
+NOTICE: MOVED TO CODEBERG https://codeberg.org/foundev/unarc
+
 Find everything under a given directory and unarchive it.
 
 # why?
